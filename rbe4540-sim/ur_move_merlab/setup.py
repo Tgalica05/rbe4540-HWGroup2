@@ -27,6 +27,8 @@ setup(
             'pick_place_demo = ur_move_merlab.pick_place_demo:main',
             'pc_processing_template = ur_move_merlab.pc_processing_template:main',
             'simple_run = ur_move_merlab.simple_run:main',
+            'pick_place_modified = ur_move_merlab.pick_place_modified:main',
+            'simple_run_image = ur_move_merlab.simple_run_image:main',
         ],
     },
 )
