@@ -42,45 +42,117 @@ class SimpleRun(Node):
 
         # use np array to store color RGB color bounds array[B, G, R]   
         # RGB bounds (AI generated):
-        yellow_lower = np.array([0, 130, 130])
-        yellow_upper = np.array([30, 180, 180])
-        green_lower = np.array([0, 130, 0])
-        green_upper = np.array([30, 180, 30])
+        yellow_lower = np.array([0, 100, 100])
+        yellow_upper = np.array([50, 255, 255])
+        green_lower = np.array([0, 100, 0])
+        green_upper = np.array([50, 255, 50])
         blue_lower = np.array([210, 0, 0])
         blue_upper = np.array([255, 30, 30])
         cyan_lower = np.array([210, 210, 0])
         cyan_upper = np.array([255, 255, 30])
 
-        lower_color_bounds = blue_lower
-        upper_color_bounds = blue_upper
 
+        # create binary masks of the pixels that are in range
+        mask_bin_yellow = cv2.inRange(self.palm_image, yellow_lower, yellow_upper)
+        mask_bin_green = cv2.inRange(self.palm_image, green_lower, green_upper)
+        mask_bin_blue = cv2.inRange(self.palm_image, blue_lower, blue_upper)
+        mask_bin_cyan = cv2.inRange(self.palm_image, cyan_lower, cyan_upper)
 
-        # create a binary mask of the pixels that are in range for finding centroid
-        mask_bin = cv2.inRange(self.palm_image, lower_color_bounds, upper_color_bounds)
+        # combine all colors to create mask (for display)
+        mask_bin = mask_bin_yellow + mask_bin_green + mask_bin_blue + mask_bin_cyan
 
-        # Find the centroid of the remaining binary mask pixels
-        M = cv2.moments(mask_bin)
-        if M['m00'] != 0:
-            Cx = int(M['m10'] / M['m00'])
-            Cy = int(M['m01'] / M['m00'])
+        # Find the centroids of the remaining pixels for each color mask
+        M_y = cv2.moments(mask_bin_yellow)
+        M_g = cv2.moments(mask_bin_green)
+        M_b = cv2.moments(mask_bin_blue)
+        M_c = cv2.moments(mask_bin_cyan)
+
+        if M_y['m00'] != 0:
+            Cx_y = int(M_y['m10'] / M_y['m00'])
+            Cy_y = int(M_y['m01'] / M_y['m00'])
         else:
-            Cx, Cy = 0, 0
+            Cx_y, Cy_y = 0, 0
+
+        if M_g['m00'] != 0:
+            Cx_g = int(M_g['m10'] / M_g['m00'])
+            Cy_g = int(M_g['m01'] / M_g['m00'])
+        else:
+            Cx_g, Cy_g = 0, 0
+
+        if M_b['m00'] != 0:
+            Cx_b = int(M_b['m10'] / M_b['m00'])
+            Cy_b = int(M_b['m01'] / M_b['m00'])
+        else:
+            Cx_b, Cy_b = 0, 0
+
+        if M_c['m00'] != 0:
+            Cx_c = int(M_c['m10'] / M_c['m00'])
+            Cy_c = int(M_c['m01'] / M_c['m00'])
+        else:
+            Cx_c, Cy_c = 0, 0
 
         # create a colored mask to show the remaining pixels in color
         mask_bgr = cv2.bitwise_and(self.palm_image, self.palm_image, mask=mask_bin)
 
         # Detect edges on binary mask
-        image_edges = cv2.Canny(mask_bin, 100, 200)
+        # image_edges = cv2.Canny(mask_bin, 100, 200)
 
 
         # override the original image with the mask
-        self.palm_image = image_edges
+        self.palm_image = mask_bgr
 
-        # Print centroid locations on image (AI generated)
-        cv2.putText(self.palm_image, f'({Cx}, {Cy})', (Cx - 25, Cy - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        # transform from image frame coordiantes to 
+        Cx_y, Cy_y = self.img_to_cam(Cx_y, Cy_y)
+        Cx_y = round(Cx_y, 3)
+        Cy_y = round(Cy_y, 3)
 
+        Cx_g, Cy_g = self.img_feature_vector(Cx_g, Cy_g)
+        Cx_g = round(Cx_g, 3)
+        Cy_g = round(Cy_g, 3)
+
+        Cx_b, Cy_b = self.img_feature_vector(Cx_b, Cy_b)
+        Cx_b = round(Cx_b, 3)
+        Cy_b = round(Cy_b, 3)
+
+        Cx_c, Cy_c = self.img_feature_vector(Cx_c, Cy_c)
+        Cx_c = round(Cx_c, 3)
+        Cy_c = round(Cy_c, 3)
+
+
+        # Print centroid locations on image
+        cv2.putText(self.palm_image, f'Yellow: ({Cx_y} {Cy_y})', (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.circle(self.palm_image, (int(Cx_y), int(Cy_y)), 3, (255, 255, 255), -1)
+        cv2.putText(self.palm_image, f'Green: ({Cx_g} {Cy_g})', (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.circle(self.palm_image, (int(Cx_g), int(Cy_g)), 3, (255, 255, 255), -1)
+        cv2.putText(self.palm_image, f'Blue: ({Cx_b} {Cy_b})', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.circle(self.palm_image, (int(Cx_b), int(Cy_b)), 3, (255, 255, 255), -1)
+        cv2.putText(self.palm_image, f'Cyan: ({Cx_c} {Cy_c})', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+        cv2.circle(self.palm_image, (int(Cx_c), int(Cy_c)), 3, (255, 255, 255), -1)
+
+        # display image
         cv2.imshow('Palm Camera', self.palm_image)
         cv2.waitKey(1) # refresh rate in milliseconds
+
+
+    def img_to_cam(self, x_im, y_im):
+
+        # define camera parameters
+        s_x = 0.00001
+        s_y = 0.00001
+        o_x = 320
+        o_y = 240
+        f = 0.00032
+        Z = 0.5
+
+        # translate from pixel frame to image plane frame
+        x = -(x_im - o_x)*s_x
+        y = -(y_im - o_y)*s_y
+
+        # translate from image plane frame to camera frame
+        X = (x*Z)/f
+        Y = (y*Z)/f
+
+        return X, Y
 
 
     def move_cartesian(self, x, y, z):
@@ -164,14 +236,17 @@ class SimpleRun(Node):
         # Each call waits for the robot to finish before continuing.
         # Images are received while the motion methods spin waiting for replies.
         # To receive images outside those methods, call rclpy.spin_once(self).
-        if not self.move_cartesian(0.45, 0.0, 0.8):
-                    return
-        if not self.move_cartesian(0.45, 0.0, 0.45):
+
+        # move to grasp-ready pose
+        if not self.move_cartesian(0.60, 0.10, 0.5):
+            return
+        # return to a different pose
+        if not self.move_cartesian(0.45, 0.0, 0.5):
             return
         time.sleep(2.0)
 
         # AI generated chunk to timestamp the filename to prevent overriding previous image
-        output_dir = '/home/tim-galica/RBE4540/Tim_Galica - HW4/OpenCV images pt1'
+        output_dir = '/home/tim-galica/RBE4540/Tim_Galica - HW5/OpenCV images'
         os.makedirs(output_dir, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         filename = os.path.join(output_dir, f'image_{timestamp}.jpg')
@@ -198,7 +273,7 @@ class SimpleRun(Node):
         #finally:
             # Also request a stop if a command fails or the user interrupts.
             # If ROS has shut down, the interface watchdog stops stale commands.
-            stopped = self.set_ee_velocity() if rclpy.ok() else False
+        #    stopped = self.set_ee_velocity() if rclpy.ok() else False
         # if not stopped:
         #    return
         self.get_logger().info('Motion sequence complete')
