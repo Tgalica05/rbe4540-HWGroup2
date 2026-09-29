@@ -97,37 +97,38 @@ class SimpleRun(Node):
         # Detect edges on binary mask
         # image_edges = cv2.Canny(mask_bin, 100, 200)
 
-
         # override the original image with the mask
         self.palm_image = mask_bgr
+
+        # draw centroids on img
+        # we do this before we override pix coordinates with camera coordinates
+        cv2.circle(self.palm_image, (int(Cx_y), int(Cy_y)), 3, (255, 255, 255), -1)
+        cv2.circle(self.palm_image, (int(Cx_g), int(Cy_g)), 3, (255, 255, 255), -1)
+        cv2.circle(self.palm_image, (int(Cx_b), int(Cy_b)), 3, (255, 255, 255), -1)
+        cv2.circle(self.palm_image, (int(Cx_c), int(Cy_c)), 3, (255, 255, 255), -1)
 
         # transform from image frame coordiantes to 
         Cx_y, Cy_y = self.img_to_cam(Cx_y, Cy_y)
         Cx_y = round(Cx_y, 3)
         Cy_y = round(Cy_y, 3)
 
-        Cx_g, Cy_g = self.img_feature_vector(Cx_g, Cy_g)
+        Cx_g, Cy_g = self.img_to_cam(Cx_g, Cy_g)
         Cx_g = round(Cx_g, 3)
         Cy_g = round(Cy_g, 3)
 
-        Cx_b, Cy_b = self.img_feature_vector(Cx_b, Cy_b)
+        Cx_b, Cy_b = self.img_to_cam(Cx_b, Cy_b)
         Cx_b = round(Cx_b, 3)
         Cy_b = round(Cy_b, 3)
 
-        Cx_c, Cy_c = self.img_feature_vector(Cx_c, Cy_c)
+        Cx_c, Cy_c = self.img_to_cam(Cx_c, Cy_c)
         Cx_c = round(Cx_c, 3)
         Cy_c = round(Cy_c, 3)
 
-
         # Print centroid locations on image
         cv2.putText(self.palm_image, f'Yellow: ({Cx_y} {Cy_y})', (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        cv2.circle(self.palm_image, (int(Cx_y), int(Cy_y)), 3, (255, 255, 255), -1)
         cv2.putText(self.palm_image, f'Green: ({Cx_g} {Cy_g})', (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        cv2.circle(self.palm_image, (int(Cx_g), int(Cy_g)), 3, (255, 255, 255), -1)
         cv2.putText(self.palm_image, f'Blue: ({Cx_b} {Cy_b})', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        cv2.circle(self.palm_image, (int(Cx_b), int(Cy_b)), 3, (255, 255, 255), -1)
         cv2.putText(self.palm_image, f'Cyan: ({Cx_c} {Cy_c})', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        cv2.circle(self.palm_image, (int(Cx_c), int(Cy_c)), 3, (255, 255, 255), -1)
 
         # display image
         cv2.imshow('Palm Camera', self.palm_image)
