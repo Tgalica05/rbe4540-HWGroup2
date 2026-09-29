@@ -141,7 +141,7 @@ class SimpleRun(Node):
         s_y = 0.00001
         o_x = 320
         o_y = 240
-        f = 0.00032
+        f = 0.0032
         Z = 0.5
 
         # translate from pixel frame to image plane frame
