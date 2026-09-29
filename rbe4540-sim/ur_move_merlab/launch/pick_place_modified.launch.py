@@ -108,12 +108,12 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "start_delay_sec",
-                default_value="15.0",
+                default_value="10.0",
                 description="Delay before the task requests its first motion.",
             ),
             DeclareLaunchArgument(
                 "task_node_delay",
-                default_value="15.0",
+                default_value="10.0",
                 description="Delay before starting the assignment task node.",
             ),
             simulation,

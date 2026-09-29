@@ -149,7 +149,7 @@ class SimpleRun(Node):
         x = -(x_im - o_x)*s_x
         y = -(y_im - o_y)*s_y
 
-        # translate from image plane frame to camera frame
+        # translate from image plane frame to camera frame (in meters)
         X = (x*Z)/f
         Y = (y*Z)/f
 
@@ -239,10 +239,11 @@ class SimpleRun(Node):
         # To receive images outside those methods, call rclpy.spin_once(self).
 
         # move to grasp-ready pose
-        if not self.move_cartesian(0.60, 0.10, 0.5):
+        if not self.move_cartesian(0.45, 0.0, 0.5):
             return
         # return to a different pose
-        if not self.move_cartesian(0.45, 0.0, 0.5):
+        if not self.move_cartesian(0.60, 0.10, 0.5):
+
             return
         time.sleep(2.0)
 
