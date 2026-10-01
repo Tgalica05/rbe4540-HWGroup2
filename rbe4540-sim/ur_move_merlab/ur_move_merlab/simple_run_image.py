@@ -1,6 +1,7 @@
 """Simple example: receive camera images and send poses and velocities. 
 Display masked palm camera image."""
 
+
 from asyncio import wait
 import os
 import time
@@ -107,7 +108,7 @@ class SimpleRun(Node):
         cv2.circle(self.palm_image, (int(Cx_b), int(Cy_b)), 3, (255, 255, 255), -1)
         cv2.circle(self.palm_image, (int(Cx_c), int(Cy_c)), 3, (255, 255, 255), -1)
 
-        # transform from image frame coordiantes to 
+        # transform from image frame coordiantes to camera fram coordinates
         Cx_y, Cy_y = self.img_to_cam(Cx_y, Cy_y)
         Cx_y = round(Cx_y, 3)
         Cy_y = round(Cy_y, 3)
@@ -130,11 +131,35 @@ class SimpleRun(Node):
         cv2.putText(self.palm_image, f'Blue: ({Cx_b} {Cy_b})', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         cv2.putText(self.palm_image, f'Cyan: ({Cx_c} {Cy_c})', (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
 
+        coords = np.array([Cx_y, 
+                           Cy_y, 
+                           Cx_g, 
+                           Cy_g, 
+                           Cx_b, 
+                           Cy_b, 
+                           Cx_c, 
+                           Cy_c])
+
+
         # display image
         cv2.imshow('Palm Camera', self.palm_image)
         cv2.waitKey(1) # refresh rate in milliseconds
 
+        vc = self.comp_camera_motion(coords)
 
+        vx = float(vc[0])
+        vy=float(vc[1])
+        vz=float(vc[2]) 
+        wx=float(vc[3])
+        wy=float(vc[4])
+        wz=float(vc[5])
+
+        self.set_ee_velocity(vx=vx, vy=vy, vz=vz, wx=wx, wy=wy, wz=wz)
+
+        return np.array([[Cx_y], [Cy_y]]), np.array([[Cx_g], [Cy_g]]), np.array([[Cx_b], [Cy_b]]), np.array([[Cx_c], [Cy_c]])
+
+
+    # function to convert from image frame coordinates to camera fram coordinates
     def img_to_cam(self, x_im, y_im):
 
         # define camera parameters
@@ -145,16 +170,76 @@ class SimpleRun(Node):
         f = 0.0032
         Z = 0.5
 
-        # translate from pixel frame to image plane frame
+        # translate from pixel frame to image plane frame (Week 4 lecture 1 slide 39)
         x = -(x_im - o_x)*s_x
         y = -(y_im - o_y)*s_y
 
-        # translate from image plane frame to camera frame (in meters)
+        # translate from image plane frame to camera frame in meters (Week 4 lecture 1 slide 40)
         X = (x*Z)/f
         Y = (y*Z)/f
 
         return X, Y
+    
+    # helper function to calculate desired camera motion based on feature errors
+    def comp_camera_motion(self, coords):
 
+        # desired color feature locations (when the EE is hovering above object)
+        des = np.array([[-0.052], 
+                        [0.061], 
+                        [0.061], 
+                        [0.061], 
+                        [0.061], 
+                        [-0.058], 
+                        [-0.058], 
+                        [-0.058]])
+
+        # compute error values by finding difference between current and desired values (e(t) = s(t) - s*)
+        err = np.vstack(((coords[0] - des[0]),
+                        (coords[1] - des[1]),
+                        (coords[2] - des[2]),
+                        (coords[3] - des[3]),
+                        (coords[4] - des[4]),
+                        (coords[5] - des[5]),
+                        (coords[6] - des[6]),
+                        (coords[7] - des[7])))
+
+        print("Error values: ", err)
+
+        # compute desired camera motion to reduce error using image jacobian
+        lam = 0.1
+
+        # build image jacobian for each feature, concatonate, and take the pseudo inverse
+        L1 = self.img_jacobian(coords[0], coords[1])
+        L2 = self.img_jacobian(coords[2], coords[3])
+        L3 = self.img_jacobian(coords[4], coords[5])
+        L4 = self.img_jacobian(coords[6], coords[7])
+
+        L = np.vstack((L1, L2, L3, L4))
+
+        print("Image Jacobian: ", L)
+
+        L = np.linalg.pinv(L)
+
+        # compute desired camera motion to reduce error using image jacobian (week 4 lecture 1 slide 35)
+        vc = -lam * np.dot(L, err)
+
+        vc = vc.flatten()
+
+        print("Desired camera motion: ", vc)
+
+        return vc
+
+    # helper function to compute image jacobian based on given feature location errors
+    def img_jacobian(self, x, y):
+
+        f = 0.0032
+        Z = 0.5
+
+        # compute image jacobian L_e based on x and y error values
+        L = np.array([[-f/Z, 0, x/Z, (x*y)/f, -1*(f + ((x**2)/f)), y],
+                      [0, -f/Z, y/Z, -1*(f + ((y**2)/f)), -x*y/f, -x]])
+
+        return L
 
     def move_cartesian(self, x, y, z):
         """Move tool0 to a position in base_link (meters), pointing downward."""
@@ -239,22 +324,22 @@ class SimpleRun(Node):
         # To receive images outside those methods, call rclpy.spin_once(self).
 
         # move to grasp-ready pose
-        if not self.move_cartesian(0.45, 0.0, 0.5):
-            return
+        ##if not self.move_cartesian(0.45, 0.0, 0.5):
+        #    return
         # return to a different pose
-        if not self.move_cartesian(0.60, 0.10, 0.5):
-
-            return
-        time.sleep(2.0)
+        
+        #if not self.move_cartesian(0.60, 0.10, 0.5):
+        #    return
+        #time.sleep(2.0)
 
         # AI generated chunk to timestamp the filename to prevent overriding previous image
-        output_dir = '/home/tim-galica/RBE4540/Tim_Galica - HW5/OpenCV images'
-        os.makedirs(output_dir, exist_ok=True)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = os.path.join(output_dir, f'image_{timestamp}.jpg')
+        #output_dir = '/home/tim-galica/RBE4540/Tim_Galica - HW5/OpenCV images'
+        #os.makedirs(output_dir, exist_ok=True)
+        #timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        #filename = os.path.join(output_dir, f'image_{timestamp}.jpg')
 
 
-        cv2.imwrite(filename, self.palm_image)
+        #cv2.imwrite(filename, self.palm_image)
 
 
 
@@ -265,9 +350,14 @@ class SimpleRun(Node):
         if not rclpy.ok():
             return
 
+        try:
+            rclpy.spin(self)
+        finally:
+            if rclpy.ok():
+                self.set_ee_velocity()
         # Move along tool0's +X, then -X (about 9 cm each at 0.03 m/s).
         # Switch directly between velocities; send zero when the sequence ends.
-        # try:
+        #try:
         #   if not self.move_ee_velocity(vx=0.03, duration=3.0):
         #       return
         #   if not self.move_ee_velocity(vx=-0.03, duration=3.0):
@@ -276,9 +366,9 @@ class SimpleRun(Node):
             # Also request a stop if a command fails or the user interrupts.
             # If ROS has shut down, the interface watchdog stops stale commands.
         #    stopped = self.set_ee_velocity() if rclpy.ok() else False
-        # if not stopped:
+        #if not stopped:
         #    return
-        self.get_logger().info('Motion sequence complete')
+        #self.get_logger().info('Motion sequence complete')
 
 
 def main(args=None):
